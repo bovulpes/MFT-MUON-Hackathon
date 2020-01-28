@@ -2,13 +2,13 @@
 
 ## Run AliRoot inside a docker container
 
-1) Pull the docker image from the docker hub
+1) pull the docker image from the docker hub
 
 ```bash
 docker pull  bovulpes/mft-muon-hackathon:v01
 ```
 
-2) Define the working directory 
+2) define the working directory 
 
 ```bash
 export ALIROOT_HOME=/<where-you-want>/
@@ -61,11 +61,15 @@ ln -s /opt/alice/AliRoot-feature-itsmft aliroot/feature-itsmft/inst
 cp /opt/alice/alice-env.sh .
 
 cp /opt/alice/alice-env.conf .
+```
 
+and initialize the environment
+
+```bash
 source alice-env.sh -n 9
 ```
 
-if everything goes fine, the output should finish with these lines:
+If everything goes fine, the output should finish with these lines:
 
 ```bash
   AliEn          <not found>
@@ -77,8 +81,8 @@ if everything goes fine, the output should finish with these lines:
   AliRoot Core   /home/vulpescu/alice/aliroot/opt/aliroot/feature-itsmft/inst
 ```
 
-8) repeat 5) if you want to open other terminals inside the same container; at
-the end, when you don't need it anymore, stop end remove it
+8) repeat point 5. if you want to open other terminals inside the same
+container; at the end, when you don't need it anymore, stop end remove it
 
 ```bash
 docker stop aliroot
@@ -88,6 +92,9 @@ docker rm aliroot
 ```
 
 ## Run a simulation + reconstruction
+
+Source the script with parameters <n_mult> = the number of tracks per event and
+<n_events> = the number of events
 
 ```bash
 . runMFT.sh <n_mult> <n_events> 1
