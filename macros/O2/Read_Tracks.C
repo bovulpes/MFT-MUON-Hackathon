@@ -61,6 +61,10 @@ void Read_Tracks() {
   printf("Number of clusters %d \n", nClusters);
   
   // Tracks
+  // class TrackMFT : public o2::track::TrackParCovFwd
+  // class TrackParCovFwd : public TrackParFwd
+  // DataFormats/Detectors/ITSMFT/MFT/include/DataFormatsMFT/TrackMFT.h
+  // DataFormats/Reconstruction/include/ReconstructionDataFormats/TrackFwd.h
   TFile fileT("mfttracks.root");
   TTree *trackTree = (TTree*)fileT.Get("o2sim");
   std::vector<o2::mft::TrackMFT> trackVec, *trackVecP = &trackVec;

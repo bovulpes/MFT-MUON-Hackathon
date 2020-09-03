@@ -33,3 +33,5 @@ Read_clsROF_1 = calculates the (x,y,z) coordinates of the cluster using the patt
 Read_clsHits = associates MC hits to clusters using the MC labels
 
 Read_Tracks = read reconstructed tracks and the clusters
+
+Read_CompClsDict = read the cluster patterns stored in the dictionary file and prints the entries
