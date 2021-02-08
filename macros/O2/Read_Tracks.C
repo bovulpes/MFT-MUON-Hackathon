@@ -24,7 +24,7 @@ void Read_Tracks() {
   std::string inputGeom = "o2sim_geometry.root";
   o2::base::GeometryManager::loadGeometry(inputGeom);
   auto gman = o2::mft::GeometryTGeo::Instance();
-  gman->fillMatrixCache(o2::utils::bit2Mask(o2::TransformType::L2G));
+  gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::TransformType::L2G));
   
   // Cluster pattern dictionary
   std::string dictfile = "MFTdictionary.bin";
@@ -45,8 +45,20 @@ void Read_Tracks() {
   std::vector<CompClusterExt> clsVec, *clsVecP = &clsVec;
   clsTree->SetBranchAddress("MFTClusterComp", &clsVecP);
   o2::dataformats::MCTruthContainer<o2::MCCompLabel>* clsLabels = nullptr;
+  o2::dataformats::IOMCTruthContainerView* labelROOTbuffer = nullptr;
+  o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constlabels;
+  // for backward compatibility we check what is stored in the file
+  auto labelClass = digTree->GetBranch("MFTDigitMCTruth")->GetClassName();
+  bool oldlabelformat = false;
   if (clsTree->GetBranch("MFTClusterMCTruth")) {
-    clsTree->SetBranchAddress("MFTClusterMCTruth", &clsLabels);
+    if (TString(labelClass).Contains("IOMCTruth")) {
+      // new format
+      clsTree->SetBranchAddress("MFTDigitMCTruth", &labelROOTbuffer);
+    } else {
+      // old format
+     clsTree->SetBranchAddress("MFTDigitMCTruth", &clslabels);
+     oldlabelformat = true;
+    }
   } else {
     printf("No Monte-Carlo information in this file\n");
     return;
@@ -70,8 +82,19 @@ void Read_Tracks() {
   std::vector<o2::mft::TrackMFT> trackVec, *trackVecP = &trackVec;
   trackTree->SetBranchAddress("MFTTrack", &trackVecP);
   o2::dataformats::MCTruthContainer<o2::MCCompLabel>* trkLabels = nullptr;
+  o2::dataformats::IOMCTruthContainerView* labelROOTbuffer = nullptr;
+  o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constlabels;
+  // for backward compatibility we check what is stored in the file
+  auto labelClass = digTree->GetBranch("MFTDigitMCTruth")->GetClassName();
+  bool oldlabelformat = false;
   if (trackTree->GetBranch("MFTTrackMCTruth")) {
-    trackTree->SetBranchAddress("MFTTrackMCTruth", &trkLabels);
+    if (TString(labelClass).Contains("IOMCTruth")) {
+      trackTree->SetBranchAddress("MFTTrackMCTruth", &labelROOTbuffer);
+    } else {
+      // old format
+     trackTree->SetBranchAddress("MFTTrackMCTruth", &trkLabels);
+     oldlabelformat = true;
+    }
   } else {
     printf("No Monte-Carlo information in this file\n");
     return;
@@ -81,6 +104,9 @@ void Read_Tracks() {
   trackTree->SetBranchAddress("MFTTrackClusIdx", &trackExtClsVecP);
 
   trackTree->GetEntry(0);
+  if (!oldlabelformat) {
+    labelROOTbuffer->copyandflatten(constlabels);
+  }
 
   int srcID, trkID, evnID;
   bool fake;
@@ -89,7 +115,7 @@ void Read_Tracks() {
     auto trkX = track.getX();
     auto trkY = track.getY();
     auto trkZ = track.getZ();
-    auto trkLabel = trkLabels->getLabels(iTrack);
+    const auto& trkLabel = oldlabelformat ? trkLabels->getLabels(iTrack) : constlabels.getLabels(iTrack);
     //trkLabel[0].print();
     auto eventID = trkLabel[0].getEventID();
     auto outParam = track.getOutParam();
@@ -108,12 +134,12 @@ void Read_Tracks() {
     for (int icls = 0; icls < ncls; ++icls) {
       auto clsEntry = trackExtClsVec[offset + icls];
       auto cluster = clsVec[clsEntry];
-      auto& clsLabel = (clsLabels->getLabels(clsEntry))[0];
+      const auto& clsLabel = oldlabelformat ? (clsLabels->getLabels(clsEntry)[0]) : (constlabels.getLabels(clsEntry)[0]);
       if (!clsLabel.isNoise()) {
 	clsLabel.get(trkID, evnID, srcID, fake);
 	auto chipID = cluster.getChipID(); 
 	auto pattID = cluster.getPatternID();
-	Point3D<float> locC;
+	o2::math_utils::Point3D<float> locC;
 	int npix = 0;
 	if (pattID == o2::itsmft::CompCluster::InvalidPatternID || dict.isGroup(pattID)) {
 	  // temporary fix ...

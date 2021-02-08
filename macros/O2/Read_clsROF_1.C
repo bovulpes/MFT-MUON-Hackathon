@@ -26,7 +26,7 @@ void Read_clsROF_1() {
   std::string inputGeom = "o2sim_geometry.root";
   o2::base::GeometryManager::loadGeometry(inputGeom);
   auto gman = o2::mft::GeometryTGeo::Instance();
-  gman->fillMatrixCache(o2::utils::bit2Mask(o2::TransformType::L2G));
+  gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::L2G));
   
   // Cluster pattern dictionary
   std::string dictfile = "MFTdictionary.bin";
@@ -45,8 +45,20 @@ void Read_clsROF_1() {
   std::vector<CompClusterExt> clsVec, *clsVecP = &clsVec;
   clsTree->SetBranchAddress("MFTClusterComp", &clsVecP);
   o2::dataformats::MCTruthContainer<o2::MCCompLabel>* labels = nullptr;
+  o2::dataformats::IOMCTruthContainerView* labelROOTbuffer = nullptr;
+  o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constlabels;
+  // for backward compatibility we check what is stored in the file
+  auto labelClass = clsTree->GetBranch("MFTClusterMCTruth")->GetClassName();
+  bool oldlabelformat = false;
   if (clsTree->GetBranch("MFTClusterMCTruth")) {
-    clsTree->SetBranchAddress("MFTClusterMCTruth", &labels);
+    if (TString(labelClass).Contains("IOMCTruth")) {
+      // new format
+      clsTree->SetBranchAddress("MFTClusterMCTruth", &labelROOTbuffer);
+    } else {
+      // old format
+     clsTree->SetBranchAddress("MFTClusterMCTruth", &labels);
+     oldlabelformat = true;
+    }
   } else {
     printf("No Monte-Carlo information in this file\n");
     return;
@@ -56,20 +68,26 @@ void Read_clsROF_1() {
   printf("Number of entries in clusters tree %d \n", nEntries);
   
   clsTree->GetEntry(0);
-
+  if (!oldlabelformat) {
+    labelROOTbuffer->copyandflatten(constlabels);
+  }
   int nClusters = clsVec.size();
   printf("Number of clusters %d \n", nClusters);
   
   int srcID, trkID, evnID;
-  bool fake;
+  //bool fake;
   for (int icls = 0; icls < nClusters; icls++) {
     auto cluster = clsVec[icls];
-    auto& label = (labels->getLabels(icls))[0];
+    const auto& label = oldlabelformat ? (labels->getLabels(icls)[0]) : (constlabels.getLabels(icls)[0]);
+    //auto& label = (labels->getLabels(icls))[0];
     if (!label.isNoise()) {
-      label.get(trkID, evnID, srcID, fake);
+      //label.get(trkID, evnID, srcID, fake);
+      srcID = label.getSourceID();
+      trkID = label.getTrackID();
+      evnID = label.getEventID();
       auto chipID = cluster.getChipID(); 
       auto pattID = cluster.getPatternID();
-      Point3D<float> locC;
+      o2::math_utils::Point3D<float> locC;
       int npix = 0;
       if (pattID == o2::itsmft::CompCluster::InvalidPatternID || dict.isGroup(pattID)) {
 	// temporary fix ...
