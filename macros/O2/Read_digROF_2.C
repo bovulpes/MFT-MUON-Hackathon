@@ -25,8 +25,20 @@ void Read_digROF_2() {
   std::vector<o2::itsmft::Digit> digVec, *digVecP = &digVec;
   digTree->SetBranchAddress("MFTDigit", &digVecP);
   o2::dataformats::MCTruthContainer<o2::MCCompLabel>* labels = nullptr;
+  o2::dataformats::IOMCTruthContainerView* labelROOTbuffer = nullptr;
+  o2::dataformats::ConstMCTruthContainer<o2::MCCompLabel> constlabels;
+  // for backward compatibility we check what is stored in the file
+  auto labelClass = digTree->GetBranch("MFTDigitMCTruth")->GetClassName();
+  bool oldlabelformat = false;
   if (digTree->GetBranch("MFTDigitMCTruth")) {
-    digTree->SetBranchAddress("MFTDigitMCTruth", &labels);
+    if (TString(labelClass).Contains("IOMCTruth")) {
+      // new format
+      digTree->SetBranchAddress("MFTDigitMCTruth", &labelROOTbuffer);
+    } else {
+      // old format
+     digTree->SetBranchAddress("MFTDigitMCTruth", &labels);
+     oldlabelformat = true;
+    }
   } else {
     printf("No Monte-Carlo information in this file\n");
     return;
@@ -39,7 +51,9 @@ void Read_digROF_2() {
   printf("Number of entries in digits tree %d \n", nEntries);
   
   digTree->GetEntry(0);
-
+  if (!oldlabelformat) {
+    labelROOTbuffer->copyandflatten(constlabels);
+  }
   int nROFRec = (int)rofRecVec.size();
   printf("Found %d ROF records\n", nROFRec);
 
@@ -53,11 +67,14 @@ void Read_digROF_2() {
     int ndig = rofRec.getNEntries();
     int fdig = rofRec.getFirstEntry();
     for (int idig = fdig; idig < (fdig + ndig); idig++) {
-      auto digit = digVec[idig];
-      auto& label = (labels->getLabels(idig))[0];
+      const auto digit = digVec[idig];
+      const auto& label = oldlabelformat ? (labels->getLabels(idig)[0]) : (constlabels.getLabels(idig)[0]);
+
       if (!label.isNoise()) {
-	label.get(trkID, evnID, srcID, fake);
-	printf("Digit %5d   in chip %03d   evn %2d   trk %4d \n", idig, digit.getChipIndex(), evnID, trkID);
+        srcID = label.getSourceID();
+        trkID = label.getTrackID();
+        evnID = label.getEventID();
+	      printf("Digit %5d   in chip %03d   evn %2d   trk %4d \n", idig, digit.getChipIndex(), evnID, trkID);
       }
     }
   }
